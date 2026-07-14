@@ -8,6 +8,7 @@ DATA_DIR = Path(os.environ.get('ATTENTION_SENSOR_DATA_DIR', '/var/lib/metaspn-gu
 LOG_PATH = DATA_DIR / 'sensor-receipts.jsonl'
 SEEN_TWEETS_PATH = DATA_DIR / 'seen-tweets.json'
 BOUNTY_QUEUE_PATH = DATA_DIR / 'quai-bounty-queue.jsonl'
+VALIDATION_QUEUE_PATH = DATA_DIR / 'duplicate-validation-queue.jsonl'
 MAX_BODY = 200_000
 
 ALLOWED_SCHEMA = 'attention-sensor-v1'
@@ -55,12 +56,29 @@ def append_jsonl(path, payload):
 def apply_tweet_bounties(event):
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     if (event.get('coverage') or {}).get('synthetic_smoke'):
-        return {'tweet_ids': normalize_tweet_ids(event), 'new_bounties': [], 'seen_count': len(read_json(SEEN_TWEETS_PATH, {}))}
+        return {'tweet_ids': normalize_tweet_ids(event), 'new_bounties': [], 'duplicate_validations': [], 'seen_count': len(read_json(SEEN_TWEETS_PATH, {}))}
     tweet_ids = normalize_tweet_ids(event)
     seen = read_json(SEEN_TWEETS_PATH, {})
     created = []
+    validations = []
     for tweet_id in tweet_ids:
         if tweet_id in seen:
+            validation = {
+                'schema_version': 'quai-duplicate-validation-v1',
+                'created_at': now_iso(),
+                'tweet_id': tweet_id,
+                'tweet_url': f'https://x.com/i/web/status/{tweet_id}',
+                'status': 'validation_pending',
+                'possible_future_payment': True,
+                'possible_future_quai': None,
+                'first_seen_receipt_id': (seen.get(tweet_id) or {}).get('receipt_id'),
+                'receipt_id': event.get('receipt_id'),
+                'operator_label': event.get('operator_label') or 'anonymous-sensor',
+                'payout_address': event.get('quai_payout_address') or None,
+                'note': 'Duplicate tweet receipt. No immediate QUAI; may earn future matching after independent validation breadth is reviewed.'
+            }
+            append_jsonl(VALIDATION_QUEUE_PATH, validation)
+            validations.append(validation)
             continue
         bounty = {
             'schema_version': 'quai-tweet-bounty-v1',
@@ -80,7 +98,7 @@ def apply_tweet_bounties(event):
         created.append(bounty)
     if tweet_ids:
         write_json(SEEN_TWEETS_PATH, seen)
-    return {'tweet_ids': tweet_ids, 'new_bounties': created, 'seen_count': len(seen)}
+    return {'tweet_ids': tweet_ids, 'new_bounties': created, 'duplicate_validations': validations, 'seen_count': len(seen)}
 
 
 def load_events(days=7):
@@ -102,11 +120,11 @@ def load_events(days=7):
     return events
 
 
-def load_bounties():
-    if not BOUNTY_QUEUE_PATH.exists():
+def load_jsonl(path):
+    if not path.exists():
         return []
     out = []
-    for line in BOUNTY_QUEUE_PATH.read_text(errors='ignore').splitlines():
+    for line in path.read_text(errors='ignore').splitlines():
         if not line.strip():
             continue
         try:
@@ -114,6 +132,14 @@ def load_bounties():
         except Exception:
             continue
     return out
+
+
+def load_bounties():
+    return load_jsonl(BOUNTY_QUEUE_PATH)
+
+
+def load_validations():
+    return load_jsonl(VALIDATION_QUEUE_PATH)
 
 
 def summarize(days=7):
@@ -146,6 +172,7 @@ def summarize(days=7):
     public_targets.sort(key=lambda x: x['attention'], reverse=True)
     bounties = load_bounties()
     queued = [b for b in bounties if b.get('status') == 'queued_manual_payment']
+    validations = [v for v in load_validations() if v.get('status') == 'validation_pending']
     return {
         'schema_version': 'attention-sensor-summary-v1',
         'generated_at': now_iso(),
@@ -159,6 +186,12 @@ def summarize(days=7):
             'queued_quai': sum(float(b.get('amount_quai') or 0) for b in queued),
             'latest': queued[-10:],
             'payment_mode': 'manual_queue_no_hot_wallet'
+        },
+        'duplicate_validations': {
+            'pending_count': len(validations),
+            'latest': validations[-10:],
+            'funding_model': 'quadratic_validation_pending',
+            'note': 'Duplicates do not pay immediately. They widen validation and may receive future matching after review.'
         }
     }
 
@@ -185,7 +218,7 @@ class Handler(BaseHTTPRequestHandler):
         elif path in ['/summary.json', '/api/sensor/summary.json']:
             self._send(200, summarize())
         elif path in ['/bounties.json', '/api/sensor/bounties.json']:
-            self._send(200, {'schema_version': 'quai-tweet-bounty-list-v1', 'generated_at': now_iso(), 'bounties': load_bounties()})
+            self._send(200, {'schema_version': 'quai-tweet-bounty-list-v1', 'generated_at': now_iso(), 'bounties': load_bounties(), 'duplicate_validations': load_validations()})
         else:
             self._send(404, {'error': 'not_found'})
 
@@ -214,6 +247,7 @@ class Handler(BaseHTTPRequestHandler):
         event['tweet_bounty'] = {
             'tweet_ids': bounty_result['tweet_ids'],
             'new_bounty_count': len(bounty_result['new_bounties']),
+            'duplicate_validation_count': len(bounty_result['duplicate_validations']),
             'amount_quai_per_new_tweet': BOUNTY_QUAI_PER_NEW_TWEET,
             'payment_mode': 'manual_queue_no_hot_wallet'
         }

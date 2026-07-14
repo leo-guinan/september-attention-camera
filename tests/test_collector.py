@@ -40,6 +40,7 @@ with tempfile.TemporaryDirectory() as td:
 
         status, duplicate = request('POST', 'http://127.0.0.1:4198/api/sensor', event)
         assert status == 202 and duplicate['tweet_bounty']['new_bounty_count'] == 0
+        assert duplicate['tweet_bounty']['duplicate_validation_count'] == 1
 
         status, summary = request('GET', 'http://127.0.0.1:4198/api/sensor/summary.json')
         assert status == 200
@@ -50,12 +51,16 @@ with tempfile.TemporaryDirectory() as td:
         assert summary['bounties']['queued_count'] == 1
         assert summary['bounties']['queued_quai'] == 1
         assert summary['bounties']['payment_mode'] == 'manual_queue_no_hot_wallet'
+        assert summary['duplicate_validations']['pending_count'] == 1
+        assert summary['duplicate_validations']['funding_model'] == 'quadratic_validation_pending'
 
         status, bounties = request('GET', 'http://127.0.0.1:4198/api/sensor/bounties.json')
         assert status == 200
         assert len(bounties['bounties']) == 1
+        assert len(bounties['duplicate_validations']) == 1
         assert bounties['bounties'][0]['tweet_id'] == '1234567890123456789'
         assert bounties['bounties'][0]['payout_address'].endswith('0001')
+        assert bounties['duplicate_validations'][0]['status'] == 'validation_pending'
 
         smoke = dict(event)
         smoke['page_url'] = 'https://x.com/DefenderOfBasic/status/9999999999999999991'
@@ -64,6 +69,7 @@ with tempfile.TemporaryDirectory() as td:
         status, smoke_out = request('POST', 'http://127.0.0.1:4198/api/sensor', smoke)
         assert status == 202
         assert smoke_out['tweet_bounty']['new_bounty_count'] == 0
+        assert smoke_out['tweet_bounty']['duplicate_validation_count'] == 0
         print('COLLECTOR_TEST_OK')
     finally:
         proc.terminate()
