@@ -22,6 +22,7 @@ with tempfile.TemporaryDirectory() as td:
     env['PORT'] = '4200'
     env.pop('SMTP_HOST', None)
     env['SENDMAIL_PATH'] = str(Path(td) / 'missing-sendmail')
+    env['METASPN_EMAIL_DISABLE_SCHEDULER'] = '1'
     proc = subprocess.Popen(['python3', str(ROOT / 'email/email_capture_service.py')], env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     try:
         deadline = time.time() + 5

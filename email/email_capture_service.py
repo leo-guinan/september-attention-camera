@@ -9,7 +9,10 @@ import os
 import re
 import smtplib
 import subprocess
+import threading
 import time
+import urllib.error
+import urllib.request
 import uuid
 
 DATA_DIR = Path(os.environ.get('METASPN_EMAIL_DATA_DIR', '/var/lib/metaspn-email-capture'))
@@ -17,9 +20,8 @@ SUBSCRIBERS_PATH = DATA_DIR / 'subscribers.json'
 SEND_LOG_PATH = DATA_DIR / 'email-send-log.jsonl'
 MAX_BODY = 50_000
 EMAIL_RE = re.compile(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
-FROM_EMAIL = os.environ.get('METASPN_EMAIL_FROM', 'receipts@metaspn.network')
-FROM_NAME = os.environ.get('METASPN_EMAIL_FROM_NAME', 'MetaSPN Receipts')
 BASE_URL = os.environ.get('METASPN_EMAIL_BASE_URL', 'https://inbound.metaspn.network')
+SCHEDULER_INTERVAL_SECONDS = int(os.environ.get('METASPN_EMAIL_SCHEDULER_INTERVAL_SECONDS', '900'))
 
 SEQUENCE = [
     {
@@ -157,12 +159,26 @@ def append_jsonl(path, payload):
 
 
 def transport_status():
+    if os.environ.get('RESEND_API_KEY'):
+        return {'configured': True, 'type': 'resend'}
     if os.environ.get('SMTP_HOST'):
         return {'configured': True, 'type': 'smtp', 'host': os.environ.get('SMTP_HOST')}
     sendmail = os.environ.get('SENDMAIL_PATH') or '/usr/sbin/sendmail'
     if Path(sendmail).exists() and os.access(sendmail, os.X_OK):
         return {'configured': True, 'type': 'sendmail', 'path': sendmail}
     return {'configured': False, 'type': 'none', 'error': 'not_configured'}
+
+
+def from_header():
+    from_email = os.environ.get('METASPN_EMAIL_FROM') or os.environ.get('GUIDE_EMAIL_FROM') or 'receipts@metaspn.network'
+    from_name = os.environ.get('METASPN_EMAIL_FROM_NAME', 'MetaSPN Receipts')
+    if '<' in from_email:
+        return from_email
+    return f'{from_name} <{from_email}>'
+
+
+def reply_to_header():
+    return os.environ.get('METASPN_EMAIL_REPLY_TO') or os.environ.get('GUIDE_EMAIL_REPLY_TO') or None
 
 
 def load_subscribers():
@@ -197,10 +213,47 @@ def send_email(to_email, subject, body):
     status = transport_status()
     if not status['configured']:
         return False, status['error']
+    if status['type'] == 'resend':
+        payload = {
+            'from': from_header(),
+            'to': [to_email],
+            'subject': subject,
+            'text': body,
+        }
+        reply_to = reply_to_header()
+        if reply_to:
+            payload['reply_to'] = reply_to
+        req = urllib.request.Request(
+            'https://api.resend.com/emails',
+            data=json.dumps(payload).encode(),
+            headers={
+                'authorization': f"Bearer {os.environ['RESEND_API_KEY']}",
+                'content-type': 'application/json',
+                'accept': 'application/json',
+                'user-agent': 'MetaSPN-Email-Capture/1.0',
+            },
+            method='POST'
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=15) as res:
+                response = json.loads(res.read().decode() or '{}')
+            return True, response.get('id') or ''
+        except urllib.error.HTTPError as exc:
+            body_text = exc.read(2000).decode(errors='replace')
+            try:
+                error_payload = json.loads(body_text)
+                return False, error_payload.get('message') or error_payload.get('error') or body_text
+            except Exception:
+                return False, body_text
+        except Exception as exc:
+            return False, str(exc)
     msg = EmailMessage()
-    msg['From'] = f'{FROM_NAME} <{FROM_EMAIL}>'
+    msg['From'] = from_header()
     msg['To'] = to_email
     msg['Subject'] = subject
+    reply_to = reply_to_header()
+    if reply_to:
+        msg['Reply-To'] = reply_to
     msg.set_content(body)
     if status['type'] == 'smtp':
         port = int(os.environ.get('SMTP_PORT', '587'))
@@ -233,16 +286,24 @@ def attempt_due_sends(subscriber):
             queued += 1
             continue
         msg = by_id[item['id']]
-        ok, error = send_email(subscriber['email'], msg['subject'], render_body(msg['body'], subscriber))
+        ok, delivery_detail = send_email(subscriber['email'], msg['subject'], render_body(msg['body'], subscriber))
         if ok:
             item['sent_at'] = now_iso()
             item['status'] = 'sent'
+            item['provider_message_id'] = delivery_detail or None
             sent += 1
         else:
-            item['status'] = 'queued_transport_missing' if error == 'not_configured' else 'send_failed'
-            item['last_error'] = error
+            item['status'] = 'queued_transport_missing' if delivery_detail == 'not_configured' else 'send_failed'
+            item['last_error'] = delivery_detail
             queued += 1
-        append_jsonl(SEND_LOG_PATH, {'created_at': now_iso(), 'email_hash': subscriber['email_hash'], 'message_id': item['id'], 'sent': ok, 'error': error})
+        append_jsonl(SEND_LOG_PATH, {
+            'created_at': now_iso(),
+            'email_hash': subscriber['email_hash'],
+            'message_id': item['id'],
+            'sent': ok,
+            'provider_message_id': delivery_detail if ok else None,
+            'error': None if ok else delivery_detail,
+        })
     return sent, queued
 
 
@@ -286,6 +347,33 @@ def subscribe(payload):
     public = dict(subs[key])
     public.pop('email', None)
     return {'created': created, 'subscriber': public, 'sent_count': sent, 'queued_count': queued, 'email_transport': transport_status()}, ''
+
+
+def process_due_subscribers():
+    store = load_subscribers()
+    changed = False
+    sent = 0
+    queued = 0
+    for subscriber in store.get('subscribers', {}).values():
+        before = json.dumps(subscriber.get('sequence', []), sort_keys=True)
+        sub_sent, sub_queued = attempt_due_sends(subscriber)
+        sent += sub_sent
+        queued += sub_queued
+        after = json.dumps(subscriber.get('sequence', []), sort_keys=True)
+        if before != after:
+            changed = True
+    if changed:
+        save_subscribers(store)
+    return {'sent_count': sent, 'queued_count': queued, 'subscriber_count': len(store.get('subscribers', {}))}
+
+
+def scheduler_loop():
+    while True:
+        try:
+            process_due_subscribers()
+        except Exception as exc:
+            append_jsonl(SEND_LOG_PATH, {'created_at': now_iso(), 'scheduler_error': str(exc)})
+        time.sleep(SCHEDULER_INTERVAL_SECONDS)
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -345,6 +433,8 @@ class Handler(BaseHTTPRequestHandler):
 
 def main():
     port = int(os.environ.get('PORT', '4198'))
+    if os.environ.get('METASPN_EMAIL_DISABLE_SCHEDULER') != '1':
+        threading.Thread(target=scheduler_loop, daemon=True).start()
     server = ThreadingHTTPServer(('127.0.0.1', port), Handler)
     print(f'email capture listening on 127.0.0.1:{port}', flush=True)
     server.serve_forever()

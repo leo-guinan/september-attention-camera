@@ -90,7 +90,7 @@ Inbound also exposes a receipt-operator email sequence:
 - `GET https://inbound.metaspn.network/api/email/sequence.json` — public sequence metadata.
 - `GET https://inbound.metaspn.network/api/email/healthz` — service and email transport status.
 
-The sequence explains how to use captures, reward capturers, register downstream endpoints, and evaluate mindshare until the September event. If SMTP/sendmail is not configured, signups are stored and sequence messages remain queued; the service does not mark them sent.
+The sequence explains how to use captures, reward capturers, register downstream endpoints, and evaluate mindshare until the September event. Email transport supports Resend (`RESEND_API_KEY`), SMTP, or sendmail. On the VPS it imports the existing Resend environment from `/opt/hitchhikers-guide-chat/.env` and runs a background due-message scheduler. If no transport is configured, signups are stored and sequence messages remain queued; the service does not mark them sent.
 
 ## Event submission: commit/reveal
 
