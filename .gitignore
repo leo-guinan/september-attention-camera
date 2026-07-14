@@ -1,0 +1,8 @@
+.DS_Store
+node_modules/
+*.log
+/tmp/
+*.private.*
+.env
+.env.*
+metaspn-attention-sensor-extension.zip

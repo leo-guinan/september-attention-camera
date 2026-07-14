@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "September Attention Camera",
+  "version": "0.1.0",
+  "description": "A disposable camera for public attention: local-first receipts of visible social/network moments.",
+  "permissions": ["storage", "activeTab", "downloads"],
+  "host_permissions": [
+    "https://guide.metaspn.network/*",
+    "https://x.com/*",
+    "https://twitter.com/*",
+    "https://*.substack.com/*",
+    "https://www.psyop.report/*",
+    "https://hitchhikersguidetothefuture.com/*"
+  ],
+  "background": {"service_worker": "background.js"},
+  "content_scripts": [{
+    "matches": [
+      "https://x.com/*",
+      "https://twitter.com/*",
+      "https://*.substack.com/*",
+      "https://www.psyop.report/*",
+      "https://hitchhikersguidetothefuture.com/*"
+    ],
+    "js": ["lib/targets.js", "content.js"],
+    "run_at": "document_idle"
+  }],
+  "options_page": "options.html",
+  "action": {"default_title": "MetaSPN Sensor", "default_popup": "popup.html"}
+}
