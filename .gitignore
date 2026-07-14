@@ -6,3 +6,7 @@ node_modules/
 .env
 .env.*
 metaspn-attention-sensor-extension.zip
+index.html
+measurements.json
+attention-measurements.json
+september-attention-camera-*.zip
