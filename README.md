@@ -46,6 +46,14 @@ The collector can queue `1 QUAI` for every tweet ID it has not seen before. The 
 
 If you want to be paid, add an optional Quai payout address in extension Options before exporting/reporting receipts.
 
+Official live credit endpoint:
+
+```text
+https://inbound.metaspn.network/api/sensor
+```
+
+Use the “Use official inbound endpoint” button in extension Options after DNS/TLS is live.
+
 ## Event submission: commit/reveal
 
 Export receipts from the popup as `metaspn-attention-receipts.jsonl`, then encode:
