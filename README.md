@@ -81,6 +81,17 @@ Extension endpoint config example:
 
 Filters are routing hints only. Endpoint servers decide credit, dedupe, rewards, and rejection. Inbound also exposes `POST /api/sensor/endpoints/register` so downstream reward endpoints can register to receive relayed receipt data.
 
+
+## Email capture sequence
+
+Inbound also exposes a receipt-operator email sequence:
+
+- `POST https://inbound.metaspn.network/api/email/signup` — captures an email, optional operator label, optional Quai wallet, and interest note.
+- `GET https://inbound.metaspn.network/api/email/sequence.json` — public sequence metadata.
+- `GET https://inbound.metaspn.network/api/email/healthz` — service and email transport status.
+
+The sequence explains how to use captures, reward capturers, register downstream endpoints, and evaluate mindshare until the September event. If SMTP/sendmail is not configured, signups are stored and sequence messages remain queued; the service does not mark them sent.
+
 ## Event submission: commit/reveal
 
 Export receipts from the popup as `metaspn-attention-receipts.jsonl`, then encode:
