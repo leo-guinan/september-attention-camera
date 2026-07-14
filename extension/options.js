@@ -1,4 +1,4 @@
-const OFFICIAL_ENDPOINT={name:'MetaSPN inbound',url:'https://inbound.metaspn.network/api/sensor',enabled:true,rewardHint:'1 QUAI first-seen tweet; duplicate receipts validation pending',filters:{targetIds:[],urlPatterns:[]}};
+const OFFICIAL_ENDPOINT={name:'MetaSPN inbound',url:'https://inbound.metaspn.network/api/sensor',enabled:true,rewardHint:'MetaSPN data router; downstreams own rewards',filters:{targetIds:[],urlPatterns:[]}};
 const DEFAULTS={enabled:true,reportUrl:'',endpoints:[],operatorLabel:'anonymous-sensor',quaiPayoutAddress:''};
 function pretty(value){return JSON.stringify(value,null,2)}
 async function send(message){return chrome.runtime.sendMessage(message)}

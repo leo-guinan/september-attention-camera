@@ -42,7 +42,7 @@ Receipts are stored in Chrome local extension storage and can be exported as JSO
 
 ## 1 QUAI first-seen tweet bounty
 
-The collector can queue `1 QUAI` for every tweet ID it has not seen before. The server, not the extension, dedupes tweet IDs. Bounties are queued for manual payment; no funded hot wallet is configured in this repo.
+The MetaSPN inbound endpoint is primarily a data router. It stores receipts and can relay them to downstream endpoints. The legacy compatibility ledger can still queue `1 QUAI` for first-seen tweet IDs, but downstream endpoints handle their own rewards and money.
 
 If you want to be paid, add an optional Quai payout address in extension Options before exporting/reporting receipts.
 
@@ -55,15 +55,17 @@ https://inbound.metaspn.network/api/sensor
 Use the “Use official inbound endpoint” button in extension Options after DNS/TLS is live.
 
 
-## Multiple reward endpoints
+## Inbound relay and downstream reward endpoints
 
-The extension can submit one receipt to multiple reward endpoints. Each endpoint can publish:
+Preferred flow: the extension submits receipts to MetaSPN inbound, then inbound beams accepted data to registered downstream endpoints. Downstream endpoints publish their own policies and handle their own rewards. MetaSPN is data, not the rewards authority.
+
+Each endpoint can publish:
 
 - `GET /api/sensor/ping` — online/readiness check
 - `GET /api/sensor/policy.json` — accepted schema versions, reward rules, filters, and payment mode
 - `POST /api/sensor` — receipt intake
 
-Endpoint config example:
+Extension endpoint config example:
 
 ```json
 [
@@ -71,13 +73,13 @@ Endpoint config example:
     "name": "MetaSPN inbound",
     "url": "https://inbound.metaspn.network/api/sensor",
     "enabled": true,
-    "rewardHint": "1 QUAI first-seen tweet; duplicates validation pending",
+    "rewardHint": "MetaSPN data router; downstreams own rewards",
     "filters": {"targetIds": [], "urlPatterns": []}
   }
 ]
 ```
 
-Filters are routing hints only. Endpoint servers decide credit, dedupe, rewards, and rejection.
+Filters are routing hints only. Endpoint servers decide credit, dedupe, rewards, and rejection. Inbound also exposes `POST /api/sensor/endpoints/register` so downstream reward endpoints can register to receive relayed receipt data.
 
 ## Event submission: commit/reveal
 
