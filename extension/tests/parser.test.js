@@ -4,6 +4,7 @@ assert.equal(sensor.detectTarget('https://x.com/DefenderOfBasic').id, 'psyop');
 assert.equal(sensor.detectTarget('https://rivalvoices.substack.com/').id, 'rivalvoices');
 assert.equal(sensor.detectTarget('https://x.com/home'), null);
 assert.equal(sensor.parseCompactNumber('1.2K'), 1200);
+assert.deepEqual(sensor.extractTweetIdsFromText('https://x.com/DefenderOfBasic/status/1234567890123456789 and /status/42'), ['1234567890123456789']);
 const text = '1,234 Followers 88 Following 102 subscribers 12 Replies 34 Reposts 560 Likes 9,876 Views';
 const stats = sensor.extractVisibleStats(text, 'https://x.com/DefenderOfBasic');
 assert.equal(stats.followers, 1234);

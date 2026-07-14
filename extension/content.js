@@ -8,6 +8,8 @@
     const target = api.detectTarget(location.href);
     if(!target) return;
     const text = pageText();
+    const links = Array.from(document.querySelectorAll('a[href]')).map(a => a.href).slice(0, 500);
+    const tweetIds = Array.from(new Set(api.extractTweetIdsFromText([location.href, ...links].join('\n'))));
     const stats = api.extractVisibleStats(text, location.href);
     const derived = api.deriveAttention(stats);
     const key = [location.href, stats.followers, stats.subscribers, stats.likes, stats.reposts, stats.replies, stats.views, text.length].join('|');
@@ -19,6 +21,7 @@
       page_url: location.href,
       page_title: document.title || '',
       capture_mode: mode,
+      tweet_ids: tweetIds,
       target: {id: target.id, name: target.name, surface: target.surface, handle: target.matchedHandle || target.twitter},
       visible_stats: stats,
       derived,

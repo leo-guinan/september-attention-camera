@@ -89,6 +89,15 @@
     return stats;
   }
 
+
+  function extractTweetIdsFromText(text){
+    const ids = new Set();
+    const source = String(text || '');
+    for(const m of source.matchAll(/(?:x\.com|twitter\.com)\/[^\s/?#]+\/status\/(\d{5,25})/gi)) ids.add(m[1]);
+    for(const m of source.matchAll(/\/status\/(\d{5,25})/gi)) ids.add(m[1]);
+    return Array.from(ids);
+  }
+
   function deriveAttention(stats){
     const interactions = (stats.likes || 0) + (stats.reposts || 0) + (stats.replies || 0);
     const audience = stats.followers ?? stats.subscribers ?? null;
@@ -103,6 +112,6 @@
     };
   }
 
-  global.MetaSPNSensorTargets = {TARGETS, detectTarget, extractVisibleStats, deriveAttention, parseCompactNumber};
+  global.MetaSPNSensorTargets = {TARGETS, detectTarget, extractVisibleStats, deriveAttention, parseCompactNumber, extractTweetIdsFromText};
   if(typeof module !== 'undefined') module.exports = global.MetaSPNSensorTargets;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

@@ -8,6 +8,8 @@ Current receipt schema: `attention-sensor-v1`.
   "captured_at": "2026-07-14T19:30:00Z",
   "page_url": "https://x.com/DefenderOfBasic",
   "page_title": "...",
+  "tweet_ids": ["1234567890123456789"],
+  "quai_payout_address": "0x... or null",
   "capture_mode": "page_load | mutation | spa_navigation | manual",
   "target": {
     "id": "psyop",

@@ -26,7 +26,7 @@ It is a receipt camera, not a scraper pretending to be God.
 
 ## Privacy boundary
 
-Default mode is local-only. The extension does not report to a server unless the user explicitly enters a report URL in Options.
+Default mode is local-only. The extension does not report to a server unless the user explicitly enters a report URL in Options. Users may optionally enter a Quai payout address; it is included in exported/reported receipts so first-seen tweet bounties can be paid manually.
 
 Receipts are stored in Chrome local extension storage and can be exported as JSONL from the popup.
 
@@ -39,6 +39,12 @@ Receipts are stored in Chrome local extension storage and can be exported as JSO
 5. Select the `extension/` directory.
 6. Visit tracked X/Substack/site pages.
 7. Open the extension popup to scan/export receipts.
+
+## 1 QUAI first-seen tweet bounty
+
+The collector can queue `1 QUAI` for every tweet ID it has not seen before. The server, not the extension, dedupes tweet IDs. Bounties are queued for manual payment; no funded hot wallet is configured in this repo.
+
+If you want to be paid, add an optional Quai payout address in extension Options before exporting/reporting receipts.
 
 ## Event submission: commit/reveal
 

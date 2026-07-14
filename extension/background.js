@@ -2,6 +2,7 @@ const DEFAULTS = {
   enabled: true,
   reportUrl: '',
   operatorLabel: 'anonymous-sensor',
+  quaiPayoutAddress: '',
   rawIdentityExport: false
 };
 
@@ -18,7 +19,7 @@ async function getReceipts(){
 async function saveReceipt(receipt){
   const config = await getConfig();
   if(!config.enabled) return {stored:false, reported:false, reason:'disabled'};
-  const enriched = {...receipt, operator_label: config.operatorLabel, local_received_at: new Date().toISOString()};
+  const enriched = {...receipt, operator_label: config.operatorLabel, quai_payout_address: config.quaiPayoutAddress || null, local_received_at: new Date().toISOString()};
   const receipts = await getReceipts();
   receipts.push(enriched);
   while(receipts.length > 1000) receipts.shift();
