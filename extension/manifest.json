@@ -6,6 +6,8 @@
   "permissions": ["storage", "activeTab", "downloads"],
   "host_permissions": [
     "https://guide.metaspn.network/*",
+    "https://inbound.metaspn.network/*",
+    "https://*/*",
     "https://x.com/*",
     "https://twitter.com/*",
     "https://*.substack.com/*",

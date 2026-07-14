@@ -15,6 +15,37 @@ ALLOWED_SCHEMA = 'attention-sensor-v1'
 BOUNTY_QUAI_PER_NEW_TWEET = 1
 
 
+def endpoint_policy():
+    return {
+        'schema_version': 'attention-endpoint-policy-v1',
+        'name': 'MetaSPN inbound',
+        'endpoint': 'https://inbound.metaspn.network/api/sensor',
+        'status': 'online',
+        'accepts_schema_versions': [ALLOWED_SCHEMA],
+        'rewards': [
+            {
+                'id': 'first_seen_tweet_quai',
+                'description': '1 QUAI queued for each valid first-seen tweet ID.',
+                'amount_quai': BOUNTY_QUAI_PER_NEW_TWEET,
+                'status': 'queued_manual_payment'
+            },
+            {
+                'id': 'duplicate_validation_matching',
+                'description': 'Duplicate tweet receipts create validation_pending signals for possible future quadratic matching.',
+                'amount_quai': None,
+                'status': 'validation_pending'
+            }
+        ],
+        'filters': {
+            'tweet_ids_required_for_bounty': True,
+            'synthetic_smoke_rewards': False,
+            'accepted_targets': ['hitchhiker', 'psyop', 'rivalvoices', 'vatstack', 'unknown']
+        },
+        'payment_mode': 'manual_queue_no_hot_wallet',
+        'generated_at': now_iso()
+    }
+
+
 def now_iso():
     return time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
 
@@ -215,6 +246,10 @@ class Handler(BaseHTTPRequestHandler):
         path = urlparse(self.path).path
         if path in ['/healthz', '/api/sensor/healthz']:
             self._send(200, {'ok': True, 'time': now_iso()})
+        elif path in ['/ping', '/api/sensor/ping']:
+            self._send(200, {'ok': True, 'schema_version': 'attention-endpoint-ping-v1', 'policy_url': '/api/sensor/policy.json', 'time': now_iso()})
+        elif path in ['/policy.json', '/api/sensor/policy.json']:
+            self._send(200, endpoint_policy())
         elif path in ['/summary.json', '/api/sensor/summary.json']:
             self._send(200, summarize())
         elif path in ['/bounties.json', '/api/sensor/bounties.json']:

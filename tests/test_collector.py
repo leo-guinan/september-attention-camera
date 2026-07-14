@@ -23,6 +23,17 @@ with tempfile.TemporaryDirectory() as td:
                     break
             except Exception:
                 time.sleep(0.1)
+        status, ping = request('GET', 'http://127.0.0.1:4198/api/sensor/ping')
+        assert status == 200
+        assert ping['ok'] is True
+        assert ping['schema_version'] == 'attention-endpoint-ping-v1'
+
+        status, policy = request('GET', 'http://127.0.0.1:4198/api/sensor/policy.json')
+        assert status == 200
+        assert policy['schema_version'] == 'attention-endpoint-policy-v1'
+        assert policy['rewards'][0]['amount_quai'] == 1
+        assert policy['filters']['synthetic_smoke_rewards'] is False
+
         event = {
             'schema_version': 'attention-sensor-v1',
             'page_url': 'https://x.com/DefenderOfBasic/status/1234567890123456789',

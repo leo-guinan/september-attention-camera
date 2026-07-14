@@ -54,6 +54,31 @@ https://inbound.metaspn.network/api/sensor
 
 Use the “Use official inbound endpoint” button in extension Options after DNS/TLS is live.
 
+
+## Multiple reward endpoints
+
+The extension can submit one receipt to multiple reward endpoints. Each endpoint can publish:
+
+- `GET /api/sensor/ping` — online/readiness check
+- `GET /api/sensor/policy.json` — accepted schema versions, reward rules, filters, and payment mode
+- `POST /api/sensor` — receipt intake
+
+Endpoint config example:
+
+```json
+[
+  {
+    "name": "MetaSPN inbound",
+    "url": "https://inbound.metaspn.network/api/sensor",
+    "enabled": true,
+    "rewardHint": "1 QUAI first-seen tweet; duplicates validation pending",
+    "filters": {"targetIds": [], "urlPatterns": []}
+  }
+]
+```
+
+Filters are routing hints only. Endpoint servers decide credit, dedupe, rewards, and rejection.
+
 ## Event submission: commit/reveal
 
 Export receipts from the popup as `metaspn-attention-receipts.jsonl`, then encode:
