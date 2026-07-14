@@ -54,6 +54,8 @@ def append_jsonl(path, payload):
 
 def apply_tweet_bounties(event):
     DATA_DIR.mkdir(parents=True, exist_ok=True)
+    if (event.get('coverage') or {}).get('synthetic_smoke'):
+        return {'tweet_ids': normalize_tweet_ids(event), 'new_bounties': [], 'seen_count': len(read_json(SEEN_TWEETS_PATH, {}))}
     tweet_ids = normalize_tweet_ids(event)
     seen = read_json(SEEN_TWEETS_PATH, {})
     created = []

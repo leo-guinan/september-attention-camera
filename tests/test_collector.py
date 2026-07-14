@@ -56,6 +56,14 @@ with tempfile.TemporaryDirectory() as td:
         assert len(bounties['bounties']) == 1
         assert bounties['bounties'][0]['tweet_id'] == '1234567890123456789'
         assert bounties['bounties'][0]['payout_address'].endswith('0001')
+
+        smoke = dict(event)
+        smoke['page_url'] = 'https://x.com/DefenderOfBasic/status/9999999999999999991'
+        smoke['tweet_ids'] = ['9999999999999999991']
+        smoke['coverage'] = {'synthetic_smoke': True}
+        status, smoke_out = request('POST', 'http://127.0.0.1:4198/api/sensor', smoke)
+        assert status == 202
+        assert smoke_out['tweet_bounty']['new_bounty_count'] == 0
         print('COLLECTOR_TEST_OK')
     finally:
         proc.terminate()
